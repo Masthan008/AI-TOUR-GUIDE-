@@ -11,11 +11,18 @@ export interface GroundingSource {
   title: string;
 }
 
+export interface LandmarkDetails {
+  constructionDate: string;
+  architecturalStyle: string;
+  significance: string;
+}
+
 export interface AnalysisResult {
   landmarkName: string;
   history: string;
   sources: GroundingSource[];
   audioDataUrl: string;
+  details?: LandmarkDetails;
 }
 
 export interface HistoryItem {
@@ -25,4 +32,5 @@ export interface HistoryItem {
   history: string;
   sources: GroundingSource[];
   audioDataBase64: string;
+  details?: LandmarkDetails;
 }

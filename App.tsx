@@ -2,12 +2,13 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { ImageUploader } from './components/ImageUploader';
 import { ResultDisplay } from './components/ResultDisplay';
 import { LoadingSpinner } from './components/LoadingSpinner';
-import { recognizeLandmark, fetchLandmarkHistory, narrateText } from './services/geminiService';
+import { recognizeLandmark, fetchLandmarkHistory, narrateText, fetchLandmarkDetails } from './services/geminiService';
 import { AppState, AnalysisResult, HistoryItem } from './types';
 import { Header } from './components/Header';
 import { ErrorDisplay } from './components/ErrorDisplay';
 import { HistoryLog } from './components/HistoryLog';
 import { ArView } from './components/ArView';
+import { Footer } from './components/Footer';
 
 const HISTORY_KEY = 'photoTourHistory';
 const MAX_HISTORY_ITEMS = 10;
@@ -96,6 +97,7 @@ const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
   const [showArView, setShowArView] = useState<boolean>(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
 
   // Effect to manage and revoke the active blob URL to prevent memory leaks.
@@ -109,6 +111,20 @@ const App: React.FC = () => {
 
   useEffect(() => {
     setHistory(getHistory());
+  }, []);
+
+  // Effect to detect online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   const resetState = () => {
@@ -125,6 +141,12 @@ const App: React.FC = () => {
   };
 
   const handleImageUpload = useCallback(async (file: File) => {
+    if (isOffline) {
+        setError("You are currently offline. Please check your connection to analyze a new landmark.");
+        setAppState(AppState.ERROR);
+        return;
+    }
+
     if (!file) return;
 
     const reader = new FileReader();
@@ -148,6 +170,9 @@ const App: React.FC = () => {
         setLoadingMessage('Uncovering its history...');
         const { history, sources } = await fetchLandmarkHistory(landmarkName);
 
+        setLoadingMessage('Gathering key details...');
+        const details = await fetchLandmarkDetails(landmarkName);
+
         setLoadingMessage('Creating your audio guide...');
         const audioBase64 = await narrateText(history);
         
@@ -161,6 +186,7 @@ const App: React.FC = () => {
           history,
           sources,
           audioDataUrl: audioUrl,
+          details,
         };
         
         setAnalysisResult(analysisData);
@@ -173,6 +199,7 @@ const App: React.FC = () => {
             history,
             sources,
             audioDataBase64: audioBase64,
+            details,
         };
         setHistory(prevHistory => {
             if (prevHistory.some(item => item.landmarkName === newItem.landmarkName)) {
@@ -195,9 +222,11 @@ const App: React.FC = () => {
         setError('Failed to read the image file.');
         setAppState(AppState.ERROR);
     }
-  }, []);
+  }, [isOffline]);
   
-  const handleSelectHistoryItem = (item: HistoryItem) => {
+  const handleSelectHistoryItem = async (item: HistoryItem) => {
+    // This function is async to allow the UI to update with a loading state
+    // before the potentially blocking audio processing work is done.
     const pcmData = decodeBase64(item.audioDataBase64);
     const wavBlob = pcmToWav(pcmData, 24000, 1, 16);
     const audioUrl = URL.createObjectURL(wavBlob);
@@ -209,6 +238,7 @@ const App: React.FC = () => {
       history: item.history,
       sources: item.sources,
       audioDataUrl: audioUrl,
+      details: item.details,
     });
     setAppState(AppState.SUCCESS);
     setShowHistory(false);
@@ -244,11 +274,12 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 flex flex-col items-center p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen text-gray-100 flex flex-col items-center p-4 sm:p-6 lg:p-8 relative">
       <Header onToggleHistory={() => setShowHistory(true)} showHistoryButton={history.length > 0} />
-      <main className="w-full max-w-4xl flex-grow flex flex-col items-center justify-center">
+      <main className="w-full max-w-4xl flex-grow flex flex-col items-center justify-center z-10">
         {renderContent()}
       </main>
+      <Footer />
       {showArView && analysisResult && (
         <ArView 
           landmarkName={analysisResult.landmarkName}

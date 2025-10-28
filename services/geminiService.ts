@@ -1,5 +1,5 @@
-import { GoogleGenAI, Modality } from "@google/genai";
-import { GroundingSource } from '../types';
+import { GoogleGenAI, Modality, Type } from "@google/genai";
+import { GroundingSource, LandmarkDetails } from '../types';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set");
@@ -42,7 +42,6 @@ export async function fetchLandmarkHistory(landmarkName: string): Promise<{ hist
     const sources = rawChunks
         .map(chunk => chunk.web)
         .filter((web): web is { uri: string; title: string; } => !!web && !!web.uri && !!web.title)
-        // Fix: Changed the reduce function to provide a typed initial value and remove the generic argument to fix a TypeScript error.
         .reduce((acc, current) => {
             if (!acc.some(item => item.uri === current.uri)) {
                 acc.push(current);
@@ -51,6 +50,42 @@ export async function fetchLandmarkHistory(landmarkName: string): Promise<{ hist
         }, [] as GroundingSource[]);
 
     return { history, sources };
+}
+
+export async function fetchLandmarkDetails(landmarkName: string): Promise<LandmarkDetails> {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Provide structured details for the landmark: ${landmarkName}. I need the construction date, architectural style, and its primary significance.`,
+        config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    constructionDate: {
+                        type: Type.STRING,
+                        description: "The primary construction date or period (e.g., '1887-1889', 'c. 1173')."
+                    },
+                    architecturalStyle: {
+                        type: Type.STRING,
+                        description: "The main architectural style (e.g., 'Gothic', 'Art Deco')."
+                    },
+                    significance: {
+                        type: Type.STRING,
+                        description: "A brief, one-sentence summary of its primary significance."
+                    }
+                },
+                required: ['constructionDate', 'architecturalStyle', 'significance']
+            }
+        }
+    });
+
+    try {
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText);
+    } catch (e) {
+        console.error("Failed to parse landmark details JSON:", e);
+        throw new Error("Could not retrieve detailed information for the landmark.");
+    }
 }
 
 
