@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { ImageUploader } from './components/ImageUploader';
 import { ResultDisplay } from './components/ResultDisplay';
@@ -8,6 +7,7 @@ import { AppState, AnalysisResult, HistoryItem } from './types';
 import { Header } from './components/Header';
 import { ErrorDisplay } from './components/ErrorDisplay';
 import { HistoryLog } from './components/HistoryLog';
+import { ArView } from './components/ArView';
 
 const HISTORY_KEY = 'photoTourHistory';
 const MAX_HISTORY_ITEMS = 10;
@@ -95,6 +95,8 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
+  const [showArView, setShowArView] = useState<boolean>(false);
+
 
   // Effect to manage and revoke the active blob URL to prevent memory leaks.
   useEffect(() => {
@@ -116,6 +118,7 @@ const App: React.FC = () => {
     setError(null);
     setLoadingMessage('');
     setShowHistory(false);
+    setShowArView(false);
     if (activeAudioUrl) {
         setActiveAudioUrl(null); // This will trigger the useEffect cleanup to revoke
     }
@@ -211,6 +214,10 @@ const App: React.FC = () => {
     setShowHistory(false);
   };
 
+  const handleToggleArView = () => {
+    setShowArView(prev => !prev);
+  }
+
   const renderContent = () => {
     if (showHistory) {
       return <HistoryLog items={history} onSelect={handleSelectHistoryItem} onClose={() => setShowHistory(false)} />;
@@ -225,6 +232,7 @@ const App: React.FC = () => {
             imageUrl={imageUrl}
             result={analysisResult}
             onReset={resetState}
+            onToggleArView={handleToggleArView}
           />
         );
       case AppState.ERROR:
@@ -241,6 +249,12 @@ const App: React.FC = () => {
       <main className="w-full max-w-4xl flex-grow flex flex-col items-center justify-center">
         {renderContent()}
       </main>
+      {showArView && analysisResult && (
+        <ArView 
+          landmarkName={analysisResult.landmarkName}
+          onClose={handleToggleArView}
+        />
+      )}
     </div>
   );
 };

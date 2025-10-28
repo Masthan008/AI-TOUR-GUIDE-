@@ -66,3 +66,9 @@ export const ShareIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.195.025.39.05.588.08a2.25 2.25 0 0 1 2.502 2.502 2.25 2.25 0 0 1-.08.588m-2.502-2.502a2.25 2.25 0 0 0-2.502 2.502c.025.198.05.393.08.588m2.502-2.502a2.25 2.25 0 0 1 .588-.08 2.25 2.25 0 0 0 2.502-2.502 2.25 2.25 0 0 0-.08-.588m-2.502 2.502 2.502 2.502m0 0a2.25 2.25 0 1 0 0-2.186 2.25 2.25 0 0 0 0 2.186Zm0 0-2.502 2.502" />
     </svg>
 );
+
+export const CubeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+    </svg>
+);

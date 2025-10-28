@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnalysisResult } from '../types';
-import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon } from './Icons';
+import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon } from './Icons';
 
 interface ResultDisplayProps {
   imageUrl: string;
   result: AnalysisResult;
   onReset: () => void;
+  onToggleArView: () => void;
 }
 
 const formatTime = (time: number) => {
@@ -16,7 +17,7 @@ const formatTime = (time: number) => {
 };
 
 
-export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, onReset }) => {
+export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, onReset, onToggleArView }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -127,7 +128,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
                                     key={rate}
                                     onClick={() => changePlaybackRate(rate)}
                                     className={`px-2 py-1 text-xs font-semibold rounded-full transition-colors ${playbackRate === rate ? 'bg-cyan-500 text-white' : 'text-gray-300 hover:bg-gray-600'}`}
-                                    aria-label={`Set playback speed to ${rate}x`}
                                 >
                                     {rate}x
                                 </button>
@@ -168,6 +168,13 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
               >
                   <ShareIcon className="w-5 h-5" />
                   <span>{isCopied ? 'Copied to Clipboard!' : 'Share Tour'}</span>
+              </button>
+              <button
+                onClick={onToggleArView}
+                className="w-full flex justify-center items-center gap-2 bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-500 transition-all duration-200 ease-in-out"
+              >
+                  <CubeIcon className="w-5 h-5" />
+                  <span>AR View</span>
               </button>
               <button
                 onClick={onReset}
