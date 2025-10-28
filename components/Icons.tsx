@@ -102,3 +102,16 @@ export const ZoomInIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6" />
   </svg>
 );
+
+export const LightbulbIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-1.5c1.474-1.473 2.14-3.52 1.638-5.253.38-1.071.143-2.274-.633-3.05a3.003 3.003 0 0 0-4.242 0c-.776.776-1.013 1.98- .634 3.05C8.36 8.71 9.026 10.757 10.5 12.232A6.01 6.01 0 0 0 12 12.75Zm0 0-1.5-1.5m1.5 1.5V18m0-5.25a6.007 6.007 0 0 1-1.5-1.5c-1.474-1.473-2.14-3.52-1.638-5.253-.38-1.071-.143-2.274.633-3.05a3.003 3.003 0 0 1 4.242 0c.776.776 1.013 1.98.634 3.05C15.64 8.71 14.974 10.757 13.5 12.232A6.007 6.007 0 0 1 12 12.75Z" />
+  </svg>
+);
+
+export const MapPinIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+  </svg>
+);

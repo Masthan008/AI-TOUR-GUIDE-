@@ -94,7 +94,9 @@ export const useSpeechRecognition = () => {
 
     // Clean up on unmount
     return () => {
-      recognition.stop();
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
     };
   }, [isSupported]);
 

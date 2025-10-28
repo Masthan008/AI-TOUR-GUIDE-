@@ -1,5 +1,5 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
-import { GroundingSource, LandmarkDetails } from '../types';
+import { GroundingSource, LandmarkDetails, DiscoveryDetails } from '../types';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set");
@@ -85,6 +85,56 @@ export async function fetchLandmarkDetails(landmarkName: string): Promise<Landma
     } catch (e) {
         console.error("Failed to parse landmark details JSON:", e);
         throw new Error("Could not retrieve detailed information for the landmark.");
+    }
+}
+
+export async function fetchDiscoveryDetails(landmarkName: string): Promise<DiscoveryDetails> {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `For the landmark "${landmarkName}", provide one interesting and little-known "fun fact" and a list of 2-3 nearby attractions a tourist might enjoy.`,
+        config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    funFact: {
+                        type: Type.STRING,
+                        description: "A single, concise, and interesting fact about the landmark."
+                    },
+                    nearbyAttractions: {
+                        type: Type.ARRAY,
+                        description: "A list of 2 to 3 nearby points of interest.",
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                name: {
+                                    type: Type.STRING,
+                                    description: "The name of the nearby attraction."
+                                },
+                                description: {
+                                    type: Type.STRING,
+                                    description: "A short, one-sentence description of the attraction."
+                                }
+                            },
+                            required: ['name', 'description']
+                        }
+                    }
+                },
+                required: ['funFact', 'nearbyAttractions']
+            }
+        }
+    });
+
+    try {
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText);
+    } catch (e) {
+        console.error("Failed to parse discovery details JSON:", e);
+        // Return a default/empty state to prevent app crash if this non-critical call fails
+        return {
+            funFact: "Could not retrieve fun fact at this time.",
+            nearbyAttractions: []
+        };
     }
 }
 

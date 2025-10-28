@@ -1,8 +1,9 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ImageUploader, ImageUploaderRef } from './components/ImageUploader';
 import { ResultDisplay } from './components/ResultDisplay';
 import { LoadingSpinner } from './components/LoadingSpinner';
-import { recognizeLandmark, fetchLandmarkHistory, narrateText, fetchLandmarkDetails } from './services/geminiService';
+import { recognizeLandmark, fetchLandmarkHistory, narrateText, fetchLandmarkDetails, fetchDiscoveryDetails } from './services/geminiService';
 import { AppState, AnalysisResult, HistoryItem } from './types';
 import { Header } from './components/Header';
 import { ErrorDisplay } from './components/ErrorDisplay';
@@ -94,6 +95,7 @@ const App: React.FC = () => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rawError, setRawError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState<boolean>(false);
@@ -126,11 +128,11 @@ const App: React.FC = () => {
         if (command.includes('ar mode') || command.includes('open ar')) handleToggleArView();
     }
     
-    if (history.length > 0 && command.includes('show history') || command.includes('open history')) {
+    if (history.length > 0 && (command.includes('show history') || command.includes('open history'))) {
         setShowHistory(true);
     }
     
-    if (showHistory && command.includes('close history') || command.includes('hide history')) {
+    if (showHistory && (command.includes('close history') || command.includes('hide history'))) {
         setShowHistory(false);
     }
 
@@ -172,6 +174,7 @@ const App: React.FC = () => {
     setImageUrl(null);
     setAnalysisResult(null);
     setError(null);
+    setRawError(null);
     setLoadingMessage('');
     setShowHistory(false);
     setShowArView(false);
@@ -212,6 +215,9 @@ const App: React.FC = () => {
 
         setLoadingMessage('Gathering key details...');
         const details = await fetchLandmarkDetails(landmarkName);
+        
+        setLoadingMessage('Finding nearby attractions...');
+        const discovery = await fetchDiscoveryDetails(landmarkName);
 
         setLoadingMessage('Creating your audio guide...');
         const audioBase64 = await narrateText(history);
@@ -227,6 +233,7 @@ const App: React.FC = () => {
           sources,
           audioDataUrl: audioUrl,
           details,
+          discovery,
         };
         
         setAnalysisResult(analysisData);
@@ -240,6 +247,7 @@ const App: React.FC = () => {
             sources,
             audioDataBase64: audioBase64,
             details,
+            discovery,
         };
         setHistory(prevHistory => {
             if (prevHistory.some(item => item.landmarkName === newItem.landmarkName)) {
@@ -253,6 +261,7 @@ const App: React.FC = () => {
       } catch (err: any) {
         console.error("Analysis failed:", err);
         setError(err.message || 'An unexpected error occurred. Please try again.');
+        setRawError(err.stack || String(err));
         setAppState(AppState.ERROR);
       } finally {
         setLoadingMessage('');
@@ -260,6 +269,7 @@ const App: React.FC = () => {
     };
     reader.onerror = () => {
         setError('Failed to read the image file.');
+        setRawError('FileReader onerror event triggered.');
         setAppState(AppState.ERROR);
     }
   }, [isOffline]);
@@ -279,6 +289,7 @@ const App: React.FC = () => {
       sources: item.sources,
       audioDataUrl: audioUrl,
       details: item.details,
+      discovery: item.discovery,
     });
     setAppState(AppState.SUCCESS);
     setShowHistory(false);
@@ -312,7 +323,7 @@ const App: React.FC = () => {
           />
         );
       case AppState.ERROR:
-        return <ErrorDisplay message={error || 'An error occurred.'} onRetry={resetState} />;
+        return <ErrorDisplay message={error || 'An error occurred.'} rawError={rawError} onRetry={resetState} />;
       case AppState.IDLE:
       default:
         return <ImageUploader ref={imageUploaderRef} onImageUpload={handleImageUpload} />;

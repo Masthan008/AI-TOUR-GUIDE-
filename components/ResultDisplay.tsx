@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnalysisResult } from '../types';
-import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon } from './Icons';
+import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon } from './Icons';
 import { ImageZoomModal } from './ImageZoomModal';
 
 interface ResultDisplayProps {
@@ -46,7 +46,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
             break;
     }
     onCommandExecuted();
-  }, [voiceCommand]);
+  }, [voiceCommand, isPlaying, onCommandExecuted]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -200,6 +200,43 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
                             <dd className="ml-2 text-gray-200">{result.details.significance}</dd>
                         </div>
                     </dl>
+                </div>
+              )}
+
+              {result.discovery && (result.discovery.funFact || result.discovery.nearbyAttractions.length > 0) && (
+                <div className="border-t border-white/10 pt-4">
+                  <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-cyan-400">Discover More</h3>
+                  
+                  {result.discovery.funFact && (
+                    <div className="mb-4 p-3 bg-black/20 rounded-lg border border-white/10">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0 pt-0.5">
+                          <LightbulbIcon className="h-5 w-5 text-yellow-300" />
+                        </div>
+                        <div className="ml-3">
+                            <h4 className="font-semibold text-yellow-300">Fun Fact</h4>
+                            <p className="text-gray-200 italic">"{result.discovery.funFact}"</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {result.discovery.nearbyAttractions.length > 0 && (
+                    <div>
+                      <div className="flex items-center mb-2">
+                        <MapPinIcon className="h-5 w-5 mr-2 text-green-400" />
+                        <h4 className="font-semibold text-gray-200">Nearby Attractions:</h4>
+                      </div>
+                      <ul className="space-y-2 pl-7 list-disc list-outside text-gray-300 marker:text-green-400">
+                        {result.discovery.nearbyAttractions.map((attraction, index) => (
+                          <li key={index} className="text-sm">
+                            <strong className="text-gray-100">{attraction.name}:</strong>
+                            <span className="text-gray-300 ml-1">{attraction.description}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             

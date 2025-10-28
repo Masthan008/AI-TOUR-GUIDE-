@@ -17,12 +17,23 @@ export interface LandmarkDetails {
   significance: string;
 }
 
+export interface NearbyAttraction {
+  name: string;
+  description: string;
+}
+
+export interface DiscoveryDetails {
+  funFact: string;
+  nearbyAttractions: NearbyAttraction[];
+}
+
 export interface AnalysisResult {
   landmarkName: string;
   history: string;
   sources: GroundingSource[];
   audioDataUrl: string;
   details?: LandmarkDetails;
+  discovery?: DiscoveryDetails;
 }
 
 export interface HistoryItem {
@@ -33,4 +44,5 @@ export interface HistoryItem {
   sources: GroundingSource[];
   audioDataBase64: string;
   details?: LandmarkDetails;
+  discovery?: DiscoveryDetails;
 }
