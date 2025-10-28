@@ -240,7 +240,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
                 </div>
               )}
             
-              {result.sources.length > 0 && (
+              {result.sources && result.sources.length > 0 && (
                   <div className="border-t border-white/10 pt-4">
                       <h4 className="text-lg font-semibold mb-2 flex items-center text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-cyan-400">
                           <LinkIcon className="h-5 w-5 mr-2 text-sky-400"/>

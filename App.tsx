@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ImageUploader, ImageUploaderRef } from './components/ImageUploader';
 import { ResultDisplay } from './components/ResultDisplay';
@@ -111,6 +112,7 @@ const App: React.FC = () => {
     isSupported,
     startListening,
     stopListening,
+    error: speechError,
   } = useSpeechRecognition();
 
   // Effect to process voice commands from the speech recognition hook.
@@ -286,7 +288,7 @@ const App: React.FC = () => {
     setAnalysisResult({
       landmarkName: item.landmarkName,
       history: item.history,
-      sources: item.sources,
+      sources: item.sources || [],
       audioDataUrl: audioUrl,
       details: item.details,
       discovery: item.discovery,
@@ -348,6 +350,7 @@ const App: React.FC = () => {
         isSupported={isSupported}
         startListening={startListening}
         stopListening={stopListening}
+        error={speechError}
       />
     </div>
   );

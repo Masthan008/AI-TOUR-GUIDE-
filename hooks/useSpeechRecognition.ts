@@ -33,7 +33,7 @@ interface SpeechRecognitionAlternative {
 }
 
 interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
+  error: 'no-speech' | 'audio-capture' | 'not-allowed' | 'network' | string;
 }
 
 // FIX: Define a constructor type for SpeechRecognition to resolve the error
@@ -53,6 +53,7 @@ const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechReco
 export const useSpeechRecognition = () => {
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const isSupported = !!SpeechRecognitionAPI;
@@ -81,13 +82,36 @@ export const useSpeechRecognition = () => {
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      let errorMessage: string | null = null;
+      switch (event.error) {
+          case 'no-speech':
+              // This isn't a fatal error, just an indication that the user didn't speak.
+              // We can choose to ignore it to avoid bothering the user.
+              break;
+          case 'audio-capture':
+              errorMessage = "Microphone problem. Please check your microphone.";
+              break;
+          case 'not-allowed':
+              errorMessage = "Permission to use microphone was denied.";
+              break;
+          case 'network':
+              errorMessage = "Network error. Please check your connection.";
+              break;
+          default:
+              errorMessage = "An unknown voice recognition error occurred.";
+              break;
+      }
+
+      if (errorMessage) {
+          setError(errorMessage);
+      }
       console.error(`Speech recognition error: ${event.error}`);
-      stopListening();
     };
 
     recognition.onend = () => {
       setIsListening(false);
-      setTranscript(''); // Clear transcript when listening stops
+      // The final transcript is needed by the App component to process the command,
+      // so we should not clear it here. It's cleared when listening starts.
     };
 
     recognitionRef.current = recognition;
@@ -103,11 +127,13 @@ export const useSpeechRecognition = () => {
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
       try {
+        setError(null); // Clear previous errors on start
         setTranscript('');
         recognitionRef.current.start();
         setIsListening(true);
       } catch (error) {
         console.error("Error starting speech recognition:", error);
+        setError("Could not start listening.");
       }
     }
   };
@@ -129,5 +155,6 @@ export const useSpeechRecognition = () => {
     isSupported,
     startListening,
     stopListening,
+    error,
   };
 };
