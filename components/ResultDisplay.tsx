@@ -7,6 +7,8 @@ interface ResultDisplayProps {
   result: AnalysisResult;
   onReset: () => void;
   onToggleArView: () => void;
+  voiceCommand: string | null;
+  onCommandExecuted: () => void;
 }
 
 const formatTime = (time: number) => {
@@ -17,7 +19,7 @@ const formatTime = (time: number) => {
 };
 
 
-export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, onReset, onToggleArView }) => {
+export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, onReset, onToggleArView, voiceCommand, onCommandExecuted }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -26,6 +28,23 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
   const [isCopied, setIsCopied] = useState(false);
 
   const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+  useEffect(() => {
+    if (!voiceCommand) return;
+
+    switch (voiceCommand) {
+        case 'play':
+            if (!isPlaying) togglePlayPause();
+            break;
+        case 'pause':
+            if (isPlaying) togglePlayPause();
+            break;
+        case 'share':
+            handleShare();
+            break;
+    }
+    onCommandExecuted();
+  }, [voiceCommand]);
 
   useEffect(() => {
     const audio = audioRef.current;

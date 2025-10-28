@@ -1,12 +1,23 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
 import { UploadIcon } from './Icons';
 
 interface ImageUploaderProps {
   onImageUpload: (file: File) => void;
 }
 
-export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) => {
+export interface ImageUploaderRef {
+  triggerUpload: () => void;
+}
+
+export const ImageUploader = forwardRef<ImageUploaderRef, ImageUploaderProps>(({ onImageUpload }, ref) => {
   const [isDragging, setIsDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    triggerUpload: () => {
+      inputRef.current?.click();
+    },
+  }));
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -63,8 +74,8 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
               </p>
           </div>
         </div>
-        <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/jpeg,image/png,image/webp" aria-label="File input for landmark image"/>
+        <input ref={inputRef} id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/jpeg,image/png,image/webp" aria-label="File input for landmark image"/>
       </label>
     </div>
   );
-};
+});

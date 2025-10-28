@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { ImageUploader } from './components/ImageUploader';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { ImageUploader, ImageUploaderRef } from './components/ImageUploader';
 import { ResultDisplay } from './components/ResultDisplay';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { recognizeLandmark, fetchLandmarkHistory, narrateText, fetchLandmarkDetails } from './services/geminiService';
@@ -9,6 +9,8 @@ import { ErrorDisplay } from './components/ErrorDisplay';
 import { HistoryLog } from './components/HistoryLog';
 import { ArView } from './components/ArView';
 import { Footer } from './components/Footer';
+import { useSpeechRecognition } from './hooks/useSpeechRecognition';
+import { VoiceControl } from './components/VoiceControl';
 
 const HISTORY_KEY = 'photoTourHistory';
 const MAX_HISTORY_ITEMS = 10;
@@ -98,7 +100,45 @@ const App: React.FC = () => {
   const [activeAudioUrl, setActiveAudioUrl] = useState<string | null>(null);
   const [showArView, setShowArView] = useState<boolean>(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [voiceCommand, setVoiceCommand] = useState<string | null>(null);
+  const imageUploaderRef = useRef<ImageUploaderRef>(null);
 
+  const {
+    transcript,
+    isListening,
+    isSupported,
+    startListening,
+    stopListening,
+  } = useSpeechRecognition();
+
+  // Effect to process voice commands from the speech recognition hook.
+  useEffect(() => {
+    if (!transcript) return;
+
+    const command = transcript.toLowerCase();
+    
+    if (appState === AppState.IDLE && (command.includes('start tour') || command.includes('upload photo'))) {
+      imageUploaderRef.current?.triggerUpload();
+    } else if (appState === AppState.SUCCESS) {
+        if (command.includes('play')) setVoiceCommand('play');
+        if (command.includes('pause')) setVoiceCommand('pause');
+        if (command.includes('share tour')) setVoiceCommand('share');
+        if (command.includes('ar mode') || command.includes('open ar')) handleToggleArView();
+    }
+    
+    if (history.length > 0 && command.includes('show history') || command.includes('open history')) {
+        setShowHistory(true);
+    }
+    
+    if (showHistory && command.includes('close history') || command.includes('hide history')) {
+        setShowHistory(false);
+    }
+
+    if (command.includes('go back') || command.includes('reset') || command.includes('start over')) {
+        resetState();
+    }
+
+  }, [transcript, appState, history, showHistory]);
 
   // Effect to manage and revoke the active blob URL to prevent memory leaks.
   useEffect(() => {
@@ -248,6 +288,10 @@ const App: React.FC = () => {
     setShowArView(prev => !prev);
   }
 
+  const handleCommandExecuted = () => {
+    setVoiceCommand(null);
+  };
+
   const renderContent = () => {
     if (showHistory) {
       return <HistoryLog items={history} onSelect={handleSelectHistoryItem} onClose={() => setShowHistory(false)} />;
@@ -263,13 +307,15 @@ const App: React.FC = () => {
             result={analysisResult}
             onReset={resetState}
             onToggleArView={handleToggleArView}
+            voiceCommand={voiceCommand}
+            onCommandExecuted={handleCommandExecuted}
           />
         );
       case AppState.ERROR:
         return <ErrorDisplay message={error || 'An error occurred.'} onRetry={resetState} />;
       case AppState.IDLE:
       default:
-        return <ImageUploader onImageUpload={handleImageUpload} />;
+        return <ImageUploader ref={imageUploaderRef} onImageUpload={handleImageUpload} />;
     }
   };
 
@@ -286,6 +332,12 @@ const App: React.FC = () => {
           onClose={handleToggleArView}
         />
       )}
+       <VoiceControl
+        isListening={isListening}
+        isSupported={isSupported}
+        startListening={startListening}
+        stopListening={stopListening}
+      />
     </div>
   );
 };
