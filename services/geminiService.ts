@@ -13,7 +13,7 @@ export async function recognizeLandmark(mimeType: string, base64Data: string): P
         contents: {
             parts: [
                 {
-                    text: "You are an expert in identifying world landmarks from images. Your task is to identify the landmark in the provided photo. Respond with only the common name of the landmark, its city, and country. For example: 'Eiffel Tower, Paris, France'. If you cannot identify a specific, well-known landmark, respond with the exact phrase 'Unknown Landmark'."
+                    text: "You are an expert in identifying world landmarks from images. Your task is to identify the landmark in the provided photo. It is crucial that you make a positive identification if possible. Respond with only the common name of the landmark, its city, and country. For example: 'Eiffel Tower, Paris, France'. If you cannot identify a specific, recognizable landmark, respond with the exact phrase 'Unknown Landmark'."
                 },
                 {
                     inlineData: {
