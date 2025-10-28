@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { UploadIcon } from './Icons';
 
@@ -44,14 +43,18 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload }) =
         onDragOver={handleDrag}
         onDragLeave={handleDrag}
         onDrop={handleDrop}
-        aria-label="Image upload area: Click to select or drag and drop an image"
+        aria-label="Image upload area: Click to select or drag and drop an image. Supports JPEG, PNG, and WEBP files up to 10MB."
         className={`relative block w-full rounded-lg border-2 border-dashed ${isDragging ? 'border-cyan-400 bg-gray-800' : 'border-gray-600'} p-12 text-center hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 cursor-pointer transition-colors duration-200`}
       >
         <UploadIcon className="mx-auto h-12 w-12 text-gray-500" />
-        <span className="mt-2 block text-sm font-medium text-gray-300">
-          <span className="text-cyan-400">Upload a file</span> or drag and drop
-        </span>
-        <p className="mt-1 text-xs text-gray-500">Supported formats: JPEG, PNG, WEBP. Max size: 10MB.</p>
+        <div className="mt-4">
+            <p className="text-sm text-gray-300">
+                Drag &amp; drop a file or <span className="font-semibold text-cyan-400">click to upload</span>
+            </p>
+            <p className="mt-1 text-xs text-gray-400">
+                Supported: JPEG, PNG, WEBP (Max 10MB)
+            </p>
+        </div>
         <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/jpeg,image/png,image/webp" aria-label="File input for landmark image"/>
       </label>
     </div>
