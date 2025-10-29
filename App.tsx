@@ -236,6 +236,7 @@ const App: React.FC = () => {
           audioDataUrl: audioUrl,
           details,
           discovery,
+          rating: undefined, // Initialize rating
         };
         
         setAnalysisResult(analysisData);
@@ -250,10 +251,17 @@ const App: React.FC = () => {
             audioDataBase64: audioBase64,
             details,
             discovery,
+            rating: undefined, // Initialize rating
         };
         setHistory(prevHistory => {
-            if (prevHistory.some(item => item.landmarkName === newItem.landmarkName)) {
-                return prevHistory;
+            const existingItem = prevHistory.find(item => item.landmarkName === newItem.landmarkName);
+            if (existingItem) {
+                // If item exists, update its data but preserve its rating
+                newItem.rating = existingItem.rating;
+                const filteredHistory = prevHistory.filter(item => item.landmarkName !== newItem.landmarkName);
+                const updatedHistory = [newItem, ...filteredHistory].slice(0, MAX_HISTORY_ITEMS);
+                saveHistory(updatedHistory);
+                return updatedHistory;
             }
             const updatedHistory = [newItem, ...prevHistory].slice(0, MAX_HISTORY_ITEMS);
             saveHistory(updatedHistory);
@@ -292,9 +300,26 @@ const App: React.FC = () => {
       audioDataUrl: audioUrl,
       details: item.details,
       discovery: item.discovery,
+      rating: item.rating,
     });
     setAppState(AppState.SUCCESS);
     setShowHistory(false);
+  };
+
+  const handleSetRating = (landmarkName: string, rating: number) => {
+    setHistory(prevHistory => {
+        const updatedHistory = prevHistory.map(item =>
+            item.landmarkName === landmarkName ? { ...item, rating } : item
+        );
+        saveHistory(updatedHistory);
+        return updatedHistory;
+    });
+
+    setAnalysisResult(prevResult => 
+        prevResult && prevResult.landmarkName === landmarkName 
+            ? { ...prevResult, rating } 
+            : prevResult
+    );
   };
 
   const handleToggleArView = () => {
@@ -320,6 +345,7 @@ const App: React.FC = () => {
             result={analysisResult}
             onReset={resetState}
             onToggleArView={handleToggleArView}
+            onSetRating={handleSetRating}
             voiceCommand={voiceCommand}
             onCommandExecuted={handleCommandExecuted}
           />

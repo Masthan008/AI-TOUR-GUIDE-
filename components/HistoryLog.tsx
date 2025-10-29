@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { HistoryItem } from '../types';
-import { CloseIcon, HistoryIcon } from './Icons';
+import { CloseIcon, HistoryIcon, StarIcon } from './Icons';
 
 interface HistoryLogProps {
   items: HistoryItem[];
@@ -58,7 +59,20 @@ export const HistoryLog: React.FC<HistoryLogProps> = ({ items, onSelect, onClose
                             <img src={item.imageUrl} alt={item.landmarkName} className="w-16 h-12 object-cover rounded-md mr-4 flex-shrink-0 border border-white/10" loading="lazy" />
                             <div className="flex-grow overflow-hidden">
                                 <p className="font-medium text-gray-200 truncate group-hover:text-white">{item.landmarkName}</p>
-                                <p className="text-xs text-gray-400">{formatDate(item.id)}</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-xs text-gray-400">{formatDate(item.id)}</p>
+                                    {item.rating && item.rating > 0 && (
+                                        <div className="flex items-center">
+                                            {[...Array(5)].map((_, i) => (
+                                                <StarIcon 
+                                                    key={i} 
+                                                    className={`w-3 h-3 ${i < item.rating! ? 'text-yellow-400' : 'text-gray-600'}`} 
+                                                    fill="currentColor"
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             {loadingItemId === item.id && (
                                 <div className="ml-4 flex items-center text-xs text-gray-300 flex-shrink-0">

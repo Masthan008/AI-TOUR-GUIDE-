@@ -34,6 +34,7 @@ export interface AnalysisResult {
   audioDataUrl: string;
   details?: LandmarkDetails;
   discovery?: DiscoveryDetails;
+  rating?: number;
 }
 
 export interface HistoryItem {
@@ -45,4 +46,5 @@ export interface HistoryItem {
   audioDataBase64: string;
   details?: LandmarkDetails;
   discovery?: DiscoveryDetails;
+  rating?: number;
 }

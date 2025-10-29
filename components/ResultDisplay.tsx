@@ -1,6 +1,7 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { AnalysisResult } from '../types';
-import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon } from './Icons';
+import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon, VolumeUpIcon, VolumeOffIcon, SpinnerIcon } from './Icons';
 import { ImageZoomModal } from './ImageZoomModal';
 
 interface ResultDisplayProps {
@@ -8,6 +9,7 @@ interface ResultDisplayProps {
   result: AnalysisResult;
   onReset: () => void;
   onToggleArView: () => void;
+  onSetRating: (landmarkName: string, rating: number) => void;
   voiceCommand: string | null;
   onCommandExecuted: () => void;
 }
@@ -20,7 +22,7 @@ const formatTime = (time: number) => {
 };
 
 
-export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, onReset, onToggleArView, voiceCommand, onCommandExecuted }) => {
+export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, onReset, onToggleArView, onSetRating, voiceCommand, onCommandExecuted }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -28,6 +30,12 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isCopied, setIsCopied] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [isRatedMessageVisible, setIsRatedMessageVisible] = useState(false);
+
 
   const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -55,25 +63,47 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
     const setAudioData = () => {
       setDuration(audio.duration);
       setCurrentTime(audio.currentTime);
+      setVolume(audio.volume);
+      setIsMuted(audio.muted);
     };
 
     const setAudioTime = () => setCurrentTime(audio.currentTime);
     const handleEnd = () => setIsPlaying(false);
+    const handleVolumeChange = () => {
+        setVolume(audio.volume);
+        setIsMuted(audio.muted);
+    };
+    const handleWaiting = () => setIsBuffering(true);
+    const handleCanPlay = () => setIsBuffering(false);
 
     audio.addEventListener('loadeddata', setAudioData);
     audio.addEventListener('timeupdate', setAudioTime);
     audio.addEventListener('ended', handleEnd);
+    audio.addEventListener('volumechange', handleVolumeChange);
+    audio.addEventListener('waiting', handleWaiting);
+    audio.addEventListener('playing', handleCanPlay);
+    audio.addEventListener('canplay', handleCanPlay);
+    
+    // Initial check in case the event was missed
+    if (audio.readyState < 3) {
+        setIsBuffering(true);
+    }
+
 
     return () => {
       audio.removeEventListener('loadeddata', setAudioData);
       audio.removeEventListener('timeupdate', setAudioTime);
       audio.removeEventListener('ended', handleEnd);
+      audio.removeEventListener('volumechange', handleVolumeChange);
+      audio.removeEventListener('waiting', handleWaiting);
+      audio.removeEventListener('playing', handleCanPlay);
+      audio.removeEventListener('canplay', handleCanPlay);
     };
   }, []);
 
   const togglePlayPause = () => {
     const audio = audioRef.current;
-    if (audio) {
+    if (audio && !isBuffering) {
       if (isPlaying) {
         audio.pause();
       } else {
@@ -100,6 +130,25 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
     }
   }
   
+  const toggleMute = () => {
+    const audio = audioRef.current;
+    if(audio) {
+        audio.muted = !audio.muted;
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const audio = audioRef.current;
+    if(audio) {
+        const newVolume = Number(e.target.value);
+        audio.volume = newVolume;
+        // If user changes volume, unmute
+        if(newVolume > 0 && audio.muted) {
+            audio.muted = false;
+        }
+    }
+  };
+
   const handleShare = () => {
       if (navigator.clipboard) {
           const shareText = `I just took a virtual tour of ${result.landmarkName} with the AI Photo Tour Guide! Here's a cool fact:\n\n"${result.history}"`;
@@ -112,6 +161,12 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
           })
       }
   }
+
+  const handleRating = (newRating: number) => {
+    onSetRating(result.landmarkName, newRating);
+    setIsRatedMessageVisible(true);
+    setTimeout(() => setIsRatedMessageVisible(false), 2500);
+  };
 
   return (
     <>
@@ -138,8 +193,8 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
                   <div className="w-full">
                       <audio ref={audioRef} src={result.audioDataUrl} preload="metadata" />
                       <div className="flex items-center gap-3">
-                          <button onClick={togglePlayPause} className="p-2 rounded-full bg-sky-500/20 text-sky-300 hover:bg-sky-500/40 transition-all active:scale-90" aria-label={isPlaying ? `Pause audio tour of ${result.landmarkName}` : `Play audio tour of ${result.landmarkName}`}>
-                              {isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6" />}
+                          <button onClick={togglePlayPause} className="p-2 rounded-full bg-sky-500/20 text-sky-300 hover:bg-sky-500/40 transition-all active:scale-90 disabled:cursor-not-allowed" aria-label={isPlaying ? `Pause audio tour of ${result.landmarkName}` : `Play audio tour of ${result.landmarkName}`} disabled={isBuffering}>
+                              {isBuffering && !isPlaying ? <SpinnerIcon className="w-6 h-6 animate-spin" /> : (isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6" />)}
                           </button>
                           <span className="text-xs text-gray-400 w-12 text-center">{formatTime(currentTime)}</span>
                           <input
@@ -153,6 +208,22 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
                               aria-label={`Audio scrubber for ${result.landmarkName} tour`}
                           />
                           <span className="text-xs text-gray-400 w-12 text-center">{formatTime(duration)}</span>
+                          <div className="flex items-center group">
+                            <button onClick={toggleMute} className="p-1 text-gray-300 hover:text-white" aria-label={isMuted || volume === 0 ? `Unmute audio for ${result.landmarkName}` : `Mute audio for ${result.landmarkName}`}>
+                                {isMuted || volume === 0 ? <VolumeOffIcon className="w-5 h-5" /> : <VolumeUpIcon className="w-5 h-5" />}
+                            </button>
+                            <div className="w-0 group-hover:w-20 transition-all duration-300 overflow-hidden">
+                                <input
+                                    type="range"
+                                    min="0" max="1" step="0.01"
+                                    value={isMuted ? 0 : volume}
+                                    onChange={handleVolumeChange}
+                                    className="w-20 h-1.5 ml-1 bg-gray-600/50 rounded-lg appearance-none cursor-pointer range-thumb"
+                                    style={{'--thumb-color': '#38bdf8'} as React.CSSProperties}
+                                    aria-label={`Volume control for ${result.landmarkName}`}
+                                />
+                            </div>
+                          </div>
                           <div className="flex items-center gap-1 bg-black/20 rounded-full px-1 border border-white/10">
                               {playbackRates.map(rate => (
                                   <button
@@ -202,6 +273,32 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
                     </dl>
                 </div>
               )}
+             
+              <div className="border-t border-white/10 pt-4">
+                <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-cyan-400">Your Rating</h3>
+                <div className="flex items-center" onMouseLeave={() => setHoverRating(0)}>
+                    <div className="flex items-center space-x-1">
+                        {[...Array(5)].map((_, index) => {
+                            const ratingValue = index + 1;
+                            return (
+                                <button
+                                    key={ratingValue}
+                                    onClick={() => handleRating(ratingValue)}
+                                    onMouseEnter={() => setHoverRating(ratingValue)}
+                                    className="p-1 transition-transform duration-150 ease-in-out hover:scale-125 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-yellow-400 rounded-full"
+                                    aria-label={`Rate ${ratingValue} out of 5 stars`}
+                                >
+                                    <StarIcon 
+                                        className={`w-7 h-7 transition-colors ${ratingValue <= (hoverRating || result.rating || 0) ? 'text-yellow-400' : 'text-gray-500'}`} 
+                                        fill="currentColor"
+                                    />
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {isRatedMessageVisible && <span className="ml-4 text-sm text-green-400" style={{animation: 'fade-in 0.5s'}}>Thanks for rating!</span>}
+                </div>
+              </div>
 
               {result.discovery && (result.discovery.funFact || result.discovery.nearbyAttractions.length > 0) && (
                 <div className="border-t border-white/10 pt-4">
