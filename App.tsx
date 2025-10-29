@@ -1,18 +1,17 @@
-
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ImageUploader, ImageUploaderRef } from './components/ImageUploader';
 import { ResultDisplay } from './components/ResultDisplay';
 import { LoadingSpinner } from './components/LoadingSpinner';
-import { recognizeLandmark, fetchLandmarkHistory, narrateText, fetchLandmarkDetails, fetchDiscoveryDetails } from './services/geminiService';
+import { recognizeLandmark, fetchLandmarkHistory, narrateText, fetchLandmarkDetails, fetchDiscoveryDetails, fetchDetailedLandmarkHistory } from './services/geminiService';
 import { AppState, AnalysisResult, HistoryItem } from './types';
 import { Header } from './components/Header';
 import { ErrorDisplay } from './components/ErrorDisplay';
 import { HistoryLog } from './components/HistoryLog';
 import { ArView } from './components/ArView';
 import { Footer } from './components/Footer';
-import { useSpeechRecognition } from './hooks/useSpeechRecognition';
+import { useGeminiLive } from './hooks/useGeminiLive';
 import { VoiceControl } from './components/VoiceControl';
+import { CommandInput } from './components/CommandInput';
 
 const HISTORY_KEY = 'photoTourHistory';
 const MAX_HISTORY_ITEMS = 10;
@@ -106,6 +105,9 @@ const App: React.FC = () => {
   const [voiceCommand, setVoiceCommand] = useState<string | null>(null);
   const imageUploaderRef = useRef<ImageUploaderRef>(null);
 
+  const [detailedHistory, setDetailedHistory] = useState<string | null>(null);
+  const [isFetchingDetailedHistory, setIsFetchingDetailedHistory] = useState(false);
+
   const {
     transcript,
     isListening,
@@ -113,14 +115,13 @@ const App: React.FC = () => {
     startListening,
     stopListening,
     error: speechError,
-  } = useSpeechRecognition();
+  } = useGeminiLive();
 
-  // Effect to process voice commands from the speech recognition hook.
-  useEffect(() => {
-    if (!transcript) return;
+  // Centralized function to process commands from any source (voice, text).
+  const processCommand = useCallback((commandText: string) => {
+    const command = commandText.toLowerCase().trim();
+    if (!command) return;
 
-    const command = transcript.toLowerCase();
-    
     if (appState === AppState.IDLE && (command.includes('start tour') || command.includes('upload photo'))) {
       imageUploaderRef.current?.triggerUpload();
     } else if (appState === AppState.SUCCESS) {
@@ -141,8 +142,14 @@ const App: React.FC = () => {
     if (command.includes('go back') || command.includes('reset') || command.includes('start over')) {
         resetState();
     }
+  }, [appState, history, showHistory]);
 
-  }, [transcript, appState, history, showHistory]);
+  // Effect to process voice commands from the speech recognition hook.
+  useEffect(() => {
+    if (transcript) {
+        processCommand(transcript);
+    }
+  }, [transcript, processCommand]);
 
   // Effect to manage and revoke the active blob URL to prevent memory leaks.
   useEffect(() => {
@@ -180,6 +187,8 @@ const App: React.FC = () => {
     setLoadingMessage('');
     setShowHistory(false);
     setShowArView(false);
+    setDetailedHistory(null);
+    setIsFetchingDetailedHistory(false);
     if (activeAudioUrl) {
         setActiveAudioUrl(null); // This will trigger the useEffect cleanup to revoke
     }
@@ -304,6 +313,7 @@ const App: React.FC = () => {
     });
     setAppState(AppState.SUCCESS);
     setShowHistory(false);
+    setDetailedHistory(null); // Clear detailed history when loading from history
   };
 
   const handleSetRating = (landmarkName: string, rating: number) => {
@@ -321,6 +331,20 @@ const App: React.FC = () => {
             : prevResult
     );
   };
+
+  const handleFetchDetailedHistory = useCallback(async (landmarkName: string) => {
+    setIsFetchingDetailedHistory(true);
+    setDetailedHistory(null);
+    try {
+        const detailed = await fetchDetailedLandmarkHistory(landmarkName);
+        setDetailedHistory(detailed);
+    } catch (err: any) {
+        console.error("Failed to fetch detailed history:", err);
+        setDetailedHistory("Could not load detailed history at this time. Please try again later.");
+    } finally {
+        setIsFetchingDetailedHistory(false);
+    }
+  }, []);
 
   const handleToggleArView = () => {
     setShowArView(prev => !prev);
@@ -348,6 +372,9 @@ const App: React.FC = () => {
             onSetRating={handleSetRating}
             voiceCommand={voiceCommand}
             onCommandExecuted={handleCommandExecuted}
+            onFetchDetailedHistory={handleFetchDetailedHistory}
+            detailedHistory={detailedHistory}
+            isFetchingDetailedHistory={isFetchingDetailedHistory}
           />
         );
       case AppState.ERROR:
@@ -371,13 +398,16 @@ const App: React.FC = () => {
           onClose={handleToggleArView}
         />
       )}
-       <VoiceControl
-        isListening={isListening}
-        isSupported={isSupported}
-        startListening={startListening}
-        stopListening={stopListening}
-        error={speechError}
-      />
+      <div className="fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 flex items-center justify-between sm:justify-end gap-2">
+        <CommandInput onSubmit={processCommand} />
+        <VoiceControl
+            isListening={isListening}
+            isSupported={isSupported}
+            startListening={startListening}
+            stopListening={stopListening}
+            error={speechError}
+        />
+       </div>
     </div>
   );
 };

@@ -52,6 +52,20 @@ export async function fetchLandmarkHistory(landmarkName: string): Promise<{ hist
     return { history, sources };
 }
 
+export async function fetchDetailedLandmarkHistory(landmarkName: string): Promise<string> {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: `Provide a comprehensive and detailed history of ${landmarkName}. Explore its construction, cultural impact, significant events associated with it, and any interesting architectural details. The response should be well-structured and engaging for a history enthusiast.`,
+        config: {
+            thinkingConfig: {
+                thinkingBudget: 32768,
+            },
+        },
+    });
+    return response.text;
+}
+
+
 export async function fetchLandmarkDetails(landmarkName: string): Promise<LandmarkDetails> {
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -90,7 +104,7 @@ export async function fetchLandmarkDetails(landmarkName: string): Promise<Landma
 
 export async function fetchDiscoveryDetails(landmarkName: string): Promise<DiscoveryDetails> {
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-flash-lite',
         contents: `For the landmark "${landmarkName}", provide one interesting and little-known "fun fact" and a list of 2-3 nearby attractions a tourist might enjoy.`,
         config: {
             responseMimeType: 'application/json',

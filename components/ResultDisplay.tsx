@@ -1,8 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { AnalysisResult } from '../types';
-import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon, VolumeUpIcon, VolumeOffIcon, SpinnerIcon } from './Icons';
+import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon, VolumeUpIcon, VolumeOffIcon, SpinnerIcon, SparklesIcon } from './Icons';
 import { ImageZoomModal } from './ImageZoomModal';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface ResultDisplayProps {
   imageUrl: string;
@@ -12,6 +12,9 @@ interface ResultDisplayProps {
   onSetRating: (landmarkName: string, rating: number) => void;
   voiceCommand: string | null;
   onCommandExecuted: () => void;
+  onFetchDetailedHistory: (landmarkName: string) => void;
+  detailedHistory: string | null;
+  isFetchingDetailedHistory: boolean;
 }
 
 const formatTime = (time: number) => {
@@ -22,7 +25,10 @@ const formatTime = (time: number) => {
 };
 
 
-export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, onReset, onToggleArView, onSetRating, voiceCommand, onCommandExecuted }) => {
+export const ResultDisplay: React.FC<ResultDisplayProps> = ({ 
+    imageUrl, result, onReset, onToggleArView, onSetRating, voiceCommand, onCommandExecuted,
+    onFetchDetailedHistory, detailedHistory, isFetchingDetailedHistory 
+}) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -243,6 +249,25 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ imageUrl, result, 
               <div>
                   <h3 className="text-xl font-semibold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-cyan-400">Your AI Tour Guide Says...</h3>
                   <p className="text-gray-300 leading-relaxed text-justify">{result.history}</p>
+              </div>
+
+               <div className="border-t border-white/10 pt-4">
+                <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-pink-400">Deep Dive</h3>
+                {isFetchingDetailedHistory ? (
+                  <div className="flex justify-center items-center py-4">
+                    <LoadingSpinner message="Thinking..." />
+                  </div>
+                ) : detailedHistory ? (
+                  <p className="text-gray-300 leading-relaxed text-justify whitespace-pre-wrap">{detailedHistory}</p>
+                ) : (
+                  <button
+                    onClick={() => onFetchDetailedHistory(result.landmarkName)}
+                    className="w-full flex justify-center items-center gap-2 bg-violet-700/50 border border-white/10 text-white font-bold py-3 px-4 rounded-lg hover:bg-violet-600/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-violet-500 transition-all duration-200 ease-in-out active:scale-95"
+                  >
+                    <SparklesIcon className="w-5 h-5" />
+                    <span>Get Detailed History with Thinking Mode</span>
+                  </button>
+                )}
               </div>
 
               {result.details && (
