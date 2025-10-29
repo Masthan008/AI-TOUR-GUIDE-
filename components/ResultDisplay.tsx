@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AnalysisResult } from '../types';
-import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon, VolumeUpIcon, VolumeOffIcon, SpinnerIcon, SparklesIcon } from './Icons';
+import { AnalysisResult, SimilarImage } from '../types';
+import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon, VolumeUpIcon, VolumeOffIcon, SpinnerIcon, SparklesIcon, ImageIcon } from './Icons';
 import { ImageZoomModal } from './ImageZoomModal';
 import { LoadingSpinner } from './LoadingSpinner';
+import { fetchSimilarLandmarkInfo, generateSimilarImage } from '../services/geminiService';
 
 interface ResultDisplayProps {
   imageUrl: string;
@@ -41,7 +42,9 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [isBuffering, setIsBuffering] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [isRatedMessageVisible, setIsRatedMessageVisible] = useState(false);
-
+  const [similarImages, setSimilarImages] = useState<SimilarImage[] | null>(null);
+  const [isFetchingSimilar, setIsFetchingSimilar] = useState(false);
+  const [similarImagesError, setSimilarImagesError] = useState<string | null>(null);
 
   const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -173,6 +176,45 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     setIsRatedMessageVisible(true);
     setTimeout(() => setIsRatedMessageVisible(false), 2500);
   };
+
+  const handleFetchSimilarImages = async () => {
+    setIsFetchingSimilar(true);
+    setSimilarImagesError(null);
+    setSimilarImages(null);
+    
+    try {
+        const match = imageUrl.match(/^data:(image\/.+);base64,(.*)$/);
+        if (!match) {
+            throw new Error("Invalid image URL format");
+        }
+        const mimeType = match[1];
+        const base64Data = match[2];
+
+        const concepts = await fetchSimilarLandmarkInfo(result.landmarkName, mimeType, base64Data);
+
+        if (!concepts || concepts.length === 0) {
+            throw new Error("Could not generate concepts for similar images.");
+        }
+        
+        const imagePromises = concepts.map(async (concept) => {
+            const generatedImageBase64 = await generateSimilarImage(concept.description);
+            return {
+                imageUrl: `data:image/png;base64,${generatedImageBase64}`,
+                description: concept.description,
+            };
+        });
+
+        const generatedImages = await Promise.all(imagePromises);
+        setSimilarImages(generatedImages);
+
+    } catch (err: any) {
+        console.error("Failed to fetch similar images:", err);
+        setSimilarImagesError("Could not generate the visual tour. Please try again later.");
+    } finally {
+        setIsFetchingSimilar(false);
+    }
+  };
+
 
   return (
     <>
@@ -362,6 +404,34 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 </div>
               )}
             
+              <div className="border-t border-white/10 pt-4">
+                  <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-pink-400">Visual Tour</h3>
+                  {isFetchingSimilar ? (
+                      <LoadingSpinner message="Generating visual tour..." />
+                  ) : similarImagesError ? (
+                      <p className="text-center text-red-400">{similarImagesError}</p>
+                  ) : similarImages ? (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {similarImages.map((image, index) => (
+                              <div key={index} className="group relative overflow-hidden rounded-lg border border-white/10 shadow-lg">
+                                  <img src={image.imageUrl} alt={image.description} className="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-105" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-2 flex items-end">
+                                      <p className="text-xs text-white/90">{image.description}</p>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  ) : (
+                      <button
+                          onClick={handleFetchSimilarImages}
+                          className="w-full flex justify-center items-center gap-2 bg-violet-700/50 border border-white/10 text-white font-bold py-3 px-4 rounded-lg hover:bg-violet-600/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-violet-500 transition-all duration-200 ease-in-out active:scale-95"
+                      >
+                          <ImageIcon className="w-5 h-5" />
+                          <span>Generate a Visual Tour</span>
+                      </button>
+                  )}
+              </div>
+
               {result.sources && result.sources.length > 0 && (
                   <div className="border-t border-white/10 pt-4">
                       <h4 className="text-lg font-semibold mb-2 flex items-center text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-cyan-400">

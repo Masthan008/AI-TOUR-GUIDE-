@@ -175,3 +175,64 @@ export async function narrateText(text: string): Promise<string> {
 
     return audioData;
 }
+
+export async function fetchSimilarLandmarkInfo(landmarkName: string, mimeType: string, base64Data: string): Promise<{ description: string }[]> {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: {
+            parts: [
+                {
+                    text: `You are a creative historian and architect. Based on the provided image of ${landmarkName}, generate three concepts for related images.
+                    1. A historical photograph of the same landmark from a significantly different time period (e.g., during construction, a vintage postcard view).
+                    2. A photograph of a different landmark from anywhere in the world that shares a striking architectural or stylistic similarity.
+                    3. A photograph of another different landmark that is visually similar in form or setting.
+                    
+                    For each concept, provide a concise, one-sentence description that could be used as a prompt to generate that image. The description should be vivid and detailed.
+                    
+                    Respond ONLY with a valid JSON array of objects, where each object has a "description" key. Example: [{"description": "A sepia-toned photograph of the Eiffel Tower under construction in 1888..."}, ...]`
+                },
+                { inlineData: { mimeType, data: base64Data } }
+            ]
+        },
+        config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        description: { type: Type.STRING }
+                    },
+                    required: ['description']
+                }
+            }
+        }
+    });
+
+    try {
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText);
+    } catch (e) {
+        console.error("Failed to parse similar landmark info JSON:", e);
+        throw new Error("Could not retrieve concepts for similar landmarks.");
+    }
+}
+
+export async function generateSimilarImage(prompt: string): Promise<string> {
+    const response = await ai.models.generateImages({
+        model: 'imagen-4.0-generate-001',
+        prompt: `${prompt}, photorealistic, high detail`,
+        config: {
+          numberOfImages: 1,
+          aspectRatio: '16:9',
+        },
+    });
+
+    const imageData = response.generatedImages[0]?.image.imageBytes;
+
+    if (!imageData) {
+        throw new Error('Failed to generate a similar image.');
+    }
+
+    return imageData;
+}

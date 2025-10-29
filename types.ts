@@ -1,4 +1,5 @@
 
+
 export enum AppState {
   IDLE = 'IDLE',
   ANALYZING = 'ANALYZING',
@@ -47,4 +48,9 @@ export interface HistoryItem {
   details?: LandmarkDetails;
   discovery?: DiscoveryDetails;
   rating?: number;
+}
+
+export interface SimilarImage {
+  imageUrl: string;
+  description: string;
 }
