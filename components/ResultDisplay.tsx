@@ -45,6 +45,8 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [similarImages, setSimilarImages] = useState<SimilarImage[] | null>(null);
   const [isFetchingSimilar, setIsFetchingSimilar] = useState(false);
   const [similarImagesError, setSimilarImagesError] = useState<string | null>(null);
+  const [isMainImageLoaded, setIsMainImageLoaded] = useState(false);
+  const [similarImagesLoaded, setSimilarImagesLoaded] = useState<boolean[]>([]);
 
   const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -176,11 +178,22 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     setIsRatedMessageVisible(true);
     setTimeout(() => setIsRatedMessageVisible(false), 2500);
   };
+  
+  const handleSimilarImageLoad = (index: number) => {
+    setSimilarImagesLoaded(prev => {
+        const newLoaded = [...prev];
+        if (index < newLoaded.length) {
+            newLoaded[index] = true;
+        }
+        return newLoaded;
+    });
+  };
 
   const handleFetchSimilarImages = async () => {
     setIsFetchingSimilar(true);
     setSimilarImagesError(null);
     setSimilarImages(null);
+    setSimilarImagesLoaded([]);
     
     try {
         const match = imageUrl.match(/^data:(image\/.+);base64,(.*)$/);
@@ -206,6 +219,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
         const generatedImages = await Promise.all(imagePromises);
         setSimilarImages(generatedImages);
+        setSimilarImagesLoaded(new Array(generatedImages.length).fill(false));
 
     } catch (err: any) {
         console.error("Failed to fetch similar images:", err);
@@ -222,14 +236,25 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="flex flex-col">
               <div 
-                className="relative group cursor-pointer rounded-lg shadow-lg shadow-black/40 mb-4 overflow-hidden" 
+                className="relative group cursor-pointer rounded-lg shadow-lg shadow-black/40 mb-4 overflow-hidden aspect-video bg-black/20 border border-white/10 flex items-center justify-center" 
                 onClick={() => setIsZoomed(true)}
                 aria-label={`Enlarge photo of ${result.landmarkName}`}
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsZoomed(true); }}
               >
-                  <img src={imageUrl} alt={`Uploaded landmark, ${result.landmarkName}`} className="w-full h-auto object-cover aspect-video border border-white/10 transition-transform duration-300 group-hover:scale-105" loading="lazy" />
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                  {!isMainImageLoaded && (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-500 z-0">
+                          <ImageIcon className="w-12 h-12 animate-pulse" />
+                      </div>
+                  )}
+                  <img 
+                      src={imageUrl} 
+                      alt={`Uploaded landmark, ${result.landmarkName}`} 
+                      className={`w-full h-auto object-cover transition-all duration-500 group-hover:scale-105 relative z-10 ${isMainImageLoaded ? 'opacity-100' : 'opacity-0'}`} 
+                      loading="lazy" 
+                      onLoad={() => setIsMainImageLoaded(true)}
+                  />
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20">
                     <ZoomInIcon className="w-12 h-12 text-white" />
                   </div>
               </div>
@@ -414,8 +439,21 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           {similarImages.map((image, index) => (
                               <div key={index} className="group relative overflow-hidden rounded-lg border border-white/10 shadow-lg">
-                                  <img src={image.imageUrl} alt={image.description} className="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-105" />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-2 flex items-end">
+                                  <div className="relative w-full h-40 bg-black/20">
+                                      {(!similarImagesLoaded[index]) && (
+                                          <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+                                              <ImageIcon className="w-8 h-8 animate-pulse" />
+                                          </div>
+                                      )}
+                                      <img 
+                                          src={image.imageUrl} 
+                                          alt={image.description} 
+                                          className={`w-full h-40 object-cover transition-opacity duration-500 group-hover:scale-105 ${similarImagesLoaded[index] ? 'opacity-100' : 'opacity-0'}`}
+                                          loading="lazy"
+                                          onLoad={() => handleSimilarImageLoad(index)}
+                                      />
+                                  </div>
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-2 flex items-end pointer-events-none">
                                       <p className="text-xs text-white/90">{image.description}</p>
                                   </div>
                               </div>
