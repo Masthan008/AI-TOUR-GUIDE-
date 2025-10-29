@@ -45,11 +45,13 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [isMainImageLoaded, setIsMainImageLoaded] = useState(false);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [isFetchingPlaces, setIsFetchingPlaces] = useState(true);
+  const [geolocationError, setGeolocationError] = useState<string | null>(null);
 
   const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
   useEffect(() => {
     setIsFetchingPlaces(true);
+    setGeolocationError(null);
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -58,17 +60,24 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
             setNearbyPlaces(places);
           } catch (error) {
             console.error("Error fetching nearby places:", error);
+            setGeolocationError("Could not fetch nearby places at this time.");
           } finally {
             setIsFetchingPlaces(false);
           }
         },
         (error) => {
           console.error("Error getting geolocation:", error);
-          setIsFetchingPlaces(false); // Stop loading if user denies permission
+           if (error.code === error.PERMISSION_DENIED) {
+            setGeolocationError("Location access denied. Please enable location services in your browser settings to see nearby places.");
+          } else {
+            setGeolocationError("Could not determine your location. Please ensure location services are enabled.");
+          }
+          setIsFetchingPlaces(false);
         }
       );
     } else {
-      setIsFetchingPlaces(false); // Geolocation not supported
+      setGeolocationError("Geolocation is not supported by your browser.");
+      setIsFetchingPlaces(false);
     }
   }, [result.landmarkName]);
 
@@ -332,6 +341,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
               <div className="border-t border-white/10 pt-4">
                   <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-pink-400">Explore Nearby</h3>
                   {isFetchingPlaces ? <LoadingSpinner message="Finding nearby places..." /> :
+                    geolocationError ? <p className="text-yellow-400 text-sm text-center p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">{geolocationError}</p> :
                     nearbyPlaces.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {nearbyPlaces.map((place) => (

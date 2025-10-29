@@ -7,11 +7,6 @@ if (!process.env.API_KEY) {
 
 let ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// Function to reinstantiate the AI client, necessary for Veo after key selection.
-const getAIClient = () => {
-    return new GoogleGenAI({ apiKey: process.env.API_KEY! });
-};
-
 export async function recognizeLandmark(mimeType: string, base64Data: string): Promise<string> {
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -248,46 +243,4 @@ export async function editImage(prompt: string, base64Data: string, mimeType: st
     }
     
     throw new Error('Failed to edit image.');
-}
-
-export async function* generateVideo(
-    prompt: string | undefined,
-    base64Data: string,
-    mimeType: string,
-    aspectRatio: '16:9' | '9:16'
-): AsyncGenerator<string, string, undefined> {
-    const videoAIClient = getAIClient(); // Use a fresh client with the latest key
-    let operation = await videoAIClient.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
-        prompt,
-        image: { imageBytes: base64Data, mimeType },
-        config: {
-            numberOfVideos: 1,
-            resolution: '720p',
-            aspectRatio,
-        }
-    });
-
-    yield "Initializing video generation...";
-    
-    while (!operation.done) {
-        yield "Processing video... this may take a few minutes.";
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        operation = await videoAIClient.operations.getVideosOperation({ operation: operation });
-    }
-
-    yield "Finalizing video...";
-    
-    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!downloadLink) {
-        throw new Error("Video generation completed, but no download link was found.");
-    }
-
-    const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-    if (!response.ok) {
-        throw new Error("Failed to download the generated video.");
-    }
-    const videoBlob = await response.blob();
-    
-    return URL.createObjectURL(videoBlob);
 }
