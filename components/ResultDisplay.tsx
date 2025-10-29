@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AnalysisResult, SimilarImage } from '../types';
 import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon, VolumeUpIcon, VolumeOffIcon, SpinnerIcon, SparklesIcon, ImageIcon, AlertIcon } from './Icons';
 import { ImageZoomModal } from './ImageZoomModal';
@@ -49,6 +49,63 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [similarImagesLoaded, setSimilarImagesLoaded] = useState<boolean[]>([]);
 
   const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+  const handleFetchSimilarImages = useCallback(async () => {
+    setIsFetchingSimilar(true);
+    setSimilarImagesError(null);
+    setSimilarImages(null);
+    setSimilarImagesLoaded([]);
+    
+    try {
+        const match = imageUrl.match(/^data:(image\/.+);base64,(.*)$/);
+        if (!match) {
+            throw new Error("Invalid image URL format");
+        }
+        const mimeType = match[1];
+        const base64Data = match[2];
+
+        const concepts = await fetchSimilarLandmarkInfo(result.landmarkName, mimeType, base64Data);
+
+        if (!concepts || concepts.length === 0) {
+            throw new Error("Could not generate concepts for similar images.");
+        }
+        
+        const imageGenerationPromises = concepts.map(concept => 
+            generateSimilarImage(concept.description)
+        );
+
+        const results = await Promise.allSettled(imageGenerationPromises);
+        
+        const generatedImages = results.map((res, index) => {
+            if (res.status === 'fulfilled') {
+                return {
+                    imageUrl: `data:image/png;base64,${res.value}`,
+                    description: concepts[index].description,
+                };
+            } else {
+                console.error(`Failed to generate image for prompt: "${concepts[index].description}"`, res.reason);
+                return {
+                    imageUrl: 'ERROR', // Special flag for failed images
+                    description: 'Could not generate this image.',
+                };
+            }
+        });
+
+        setSimilarImages(generatedImages);
+        setSimilarImagesLoaded(new Array(generatedImages.length).fill(false));
+
+    } catch (err: any) {
+        console.error("Failed to fetch similar images:", err);
+        setSimilarImagesError("Could not generate the visual tour. Please try again later.");
+    } finally {
+        setIsFetchingSimilar(false);
+    }
+  }, [imageUrl, result.landmarkName]);
+
+  useEffect(() => {
+    handleFetchSimilarImages();
+  }, [handleFetchSimilarImages]);
+
 
   useEffect(() => {
     if (!voiceCommand) return;
@@ -188,59 +245,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
         return newLoaded;
     });
   };
-
-  const handleFetchSimilarImages = async () => {
-    setIsFetchingSimilar(true);
-    setSimilarImagesError(null);
-    setSimilarImages(null);
-    setSimilarImagesLoaded([]);
-    
-    try {
-        const match = imageUrl.match(/^data:(image\/.+);base64,(.*)$/);
-        if (!match) {
-            throw new Error("Invalid image URL format");
-        }
-        const mimeType = match[1];
-        const base64Data = match[2];
-
-        const concepts = await fetchSimilarLandmarkInfo(result.landmarkName, mimeType, base64Data);
-
-        if (!concepts || concepts.length === 0) {
-            throw new Error("Could not generate concepts for similar images.");
-        }
-        
-        const imageGenerationPromises = concepts.map(concept => 
-            generateSimilarImage(concept.description)
-        );
-
-        const results = await Promise.allSettled(imageGenerationPromises);
-        
-        const generatedImages = results.map((res, index) => {
-            if (res.status === 'fulfilled') {
-                return {
-                    imageUrl: `data:image/png;base64,${res.value}`,
-                    description: concepts[index].description,
-                };
-            } else {
-                console.error(`Failed to generate image for prompt: "${concepts[index].description}"`, res.reason);
-                return {
-                    imageUrl: 'ERROR', // Special flag for failed images
-                    description: 'Could not generate this image.',
-                };
-            }
-        });
-
-        setSimilarImages(generatedImages);
-        setSimilarImagesLoaded(new Array(generatedImages.length).fill(false));
-
-    } catch (err: any) {
-        console.error("Failed to fetch similar images:", err);
-        setSimilarImagesError("Could not generate the visual tour. Please try again later.");
-    } finally {
-        setIsFetchingSimilar(false);
-    }
-  };
-
 
   return (
     <>
@@ -437,11 +441,13 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
             
               <div className="border-t border-white/10 pt-4">
                   <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-pink-400">Visual Tour</h3>
-                  {isFetchingSimilar ? (
+                  {isFetchingSimilar && (
                       <LoadingSpinner message="Generating visual tour..." />
-                  ) : similarImagesError ? (
+                  )}
+                  {similarImagesError && (
                       <p className="text-center text-red-400">{similarImagesError}</p>
-                  ) : similarImages ? (
+                  )}
+                  {similarImages && (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           {similarImages.map((image, index) => (
                               <div key={index} className="group relative overflow-hidden rounded-lg border border-white/10 shadow-lg">
@@ -474,14 +480,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                               </div>
                           ))}
                       </div>
-                  ) : (
-                      <button
-                          onClick={handleFetchSimilarImages}
-                          className="w-full flex justify-center items-center gap-2 bg-violet-700/50 border border-white/10 text-white font-bold py-3 px-4 rounded-lg hover:bg-violet-600/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-violet-500 transition-all duration-200 ease-in-out active:scale-95"
-                      >
-                          <ImageIcon className="w-5 h-5" />
-                          <span>Generate a Visual Tour</span>
-                      </button>
                   )}
               </div>
 
