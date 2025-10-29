@@ -3,6 +3,7 @@
   "description": "An application that allows users to upload a photo of a landmark, uses AI to recognize it, fetches its history with search grounding, and provides a narrated audio tour using Text-to-Speech.",
   "requestFramePermissions": [
     "camera",
-    "microphone"
+    "microphone",
+    "geolocation"
   ]
 }

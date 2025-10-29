@@ -1,11 +1,16 @@
-import { GoogleGenAI, Modality, Type } from "@google/genai";
-import { GroundingSource, LandmarkDetails, DiscoveryDetails } from '../types';
+import { GoogleGenAI, Modality, Type, Chat, GenerateContentResponse } from "@google/genai";
+import { GroundingSource, LandmarkDetails, DiscoveryDetails, NearbyPlace } from '../types';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable is not set");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+// Function to reinstantiate the AI client, necessary for Veo after key selection.
+const getAIClient = () => {
+    return new GoogleGenAI({ apiKey: process.env.API_KEY! });
+};
 
 export async function recognizeLandmark(mimeType: string, base64Data: string): Promise<string> {
     const response = await ai.models.generateContent({
@@ -63,6 +68,26 @@ export async function fetchDetailedLandmarkHistory(landmarkName: string): Promis
         },
     });
     return response.text;
+}
+
+export async function fetchNearbyPlaces(landmarkName: string, latitude: number, longitude: number): Promise<NearbyPlace[]> {
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `What are some interesting places to visit near ${landmarkName}? Include restaurants, museums, or other points of interest for a tourist.`,
+        config: {
+            tools: [{ googleMaps: {} }],
+            toolConfig: {
+                retrievalConfig: {
+                    latLng: { latitude, longitude }
+                }
+            }
+        },
+    });
+
+    const rawChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    return rawChunks
+        .map(chunk => chunk.maps?.placeAnswerSources?.[0]?.place)
+        .filter((place): place is NearbyPlace => !!place);
 }
 
 
@@ -144,7 +169,6 @@ export async function fetchDiscoveryDetails(landmarkName: string): Promise<Disco
         return JSON.parse(jsonText);
     } catch (e) {
         console.error("Failed to parse discovery details JSON:", e);
-        // Return a default/empty state to prevent app crash if this non-critical call fails
         return {
             funFact: "Could not retrieve fun fact at this time.",
             nearbyAttractions: []
@@ -176,63 +200,94 @@ export async function narrateText(text: string): Promise<string> {
     return audioData;
 }
 
-export async function fetchSimilarLandmarkInfo(landmarkName: string, mimeType: string, base64Data: string): Promise<{ description: string }[]> {
-    const response = await ai.models.generateContent({
+export function startChat(): Chat {
+    return ai.chats.create({
         model: 'gemini-2.5-flash',
-        contents: {
-            parts: [
-                {
-                    text: `You are a creative historian and architect. Based on the provided image of ${landmarkName}, generate three concepts for related images.
-                    1. A historical photograph of the same landmark from a significantly different time period (e.g., during construction, a vintage postcard view).
-                    2. A photograph of a different landmark from anywhere in the world that shares a striking architectural or stylistic similarity.
-                    3. A photograph of another different landmark that is visually similar in form or setting.
-                    
-                    For each concept, provide a concise, one-sentence description that could be used as a prompt to generate that image. The description should be vivid and detailed.
-                    
-                    Respond ONLY with a valid JSON array of objects, where each object has a "description" key. Example: [{"description": "A sepia-toned photograph of the Eiffel Tower under construction in 1888..."}, ...]`
-                },
-                { inlineData: { mimeType, data: base64Data } }
-            ]
-        },
         config: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-                type: Type.ARRAY,
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        description: { type: Type.STRING }
-                    },
-                    required: ['description']
-                }
-            }
-        }
+            systemInstruction: 'You are a friendly and helpful AI assistant. Your responses should be informative and concise.',
+        },
     });
-
-    try {
-        const jsonText = response.text.trim();
-        return JSON.parse(jsonText);
-    } catch (e) {
-        console.error("Failed to parse similar landmark info JSON:", e);
-        throw new Error("Could not retrieve concepts for similar landmarks.");
-    }
 }
 
-export async function generateSimilarImage(prompt: string): Promise<string> {
+export async function generateImage(prompt: string, aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'): Promise<string> {
     const response = await ai.models.generateImages({
         model: 'imagen-4.0-generate-001',
-        prompt: `${prompt}, photorealistic, high detail`,
+        prompt,
         config: {
           numberOfImages: 1,
-          aspectRatio: '16:9',
+          aspectRatio: aspectRatio,
         },
     });
 
     const imageData = response.generatedImages[0]?.image.imageBytes;
 
     if (!imageData) {
-        throw new Error('Failed to generate a similar image.');
+        throw new Error('Failed to generate an image.');
     }
 
     return imageData;
+}
+
+export async function editImage(prompt: string, base64Data: string, mimeType: string): Promise<string> {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+            parts: [
+                { inlineData: { data: base64Data, mimeType } },
+                { text: prompt },
+            ],
+        },
+        config: {
+            responseModalities: [Modality.IMAGE],
+        },
+    });
+
+    const part = response.candidates?.[0]?.content?.parts?.[0];
+    if (part?.inlineData) {
+        return part.inlineData.data;
+    }
+    
+    throw new Error('Failed to edit image.');
+}
+
+export async function* generateVideo(
+    prompt: string | undefined,
+    base64Data: string,
+    mimeType: string,
+    aspectRatio: '16:9' | '9:16'
+): AsyncGenerator<string, string, undefined> {
+    const videoAIClient = getAIClient(); // Use a fresh client with the latest key
+    let operation = await videoAIClient.models.generateVideos({
+        model: 'veo-3.1-fast-generate-preview',
+        prompt,
+        image: { imageBytes: base64Data, mimeType },
+        config: {
+            numberOfVideos: 1,
+            resolution: '720p',
+            aspectRatio,
+        }
+    });
+
+    yield "Initializing video generation...";
+    
+    while (!operation.done) {
+        yield "Processing video... this may take a few minutes.";
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        operation = await videoAIClient.operations.getVideosOperation({ operation: operation });
+    }
+
+    yield "Finalizing video...";
+    
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) {
+        throw new Error("Video generation completed, but no download link was found.");
+    }
+
+    const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+    if (!response.ok) {
+        throw new Error("Failed to download the generated video.");
+    }
+    const videoBlob = await response.blob();
+    
+    return URL.createObjectURL(videoBlob);
 }

@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { AnalysisResult, SimilarImage } from '../types';
+import { AnalysisResult, SimilarImage, NearbyPlace } from '../types';
 import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon, VolumeUpIcon, VolumeOffIcon, SpinnerIcon, SparklesIcon, ImageIcon, AlertIcon } from './Icons';
 import { ImageZoomModal } from './ImageZoomModal';
 import { LoadingSpinner } from './LoadingSpinner';
-import { fetchSimilarLandmarkInfo, generateSimilarImage } from '../services/geminiService';
+import { fetchNearbyPlaces } from '../services/geminiService';
 
 interface ResultDisplayProps {
   imageUrl: string;
@@ -42,69 +42,35 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [isBuffering, setIsBuffering] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [isRatedMessageVisible, setIsRatedMessageVisible] = useState(false);
-  const [similarImages, setSimilarImages] = useState<SimilarImage[] | null>(null);
-  const [isFetchingSimilar, setIsFetchingSimilar] = useState(false);
-  const [similarImagesError, setSimilarImagesError] = useState<string | null>(null);
   const [isMainImageLoaded, setIsMainImageLoaded] = useState(false);
-  const [similarImagesLoaded, setSimilarImagesLoaded] = useState<boolean[]>([]);
+  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
+  const [isFetchingPlaces, setIsFetchingPlaces] = useState(true);
 
   const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-  const handleFetchSimilarImages = useCallback(async () => {
-    setIsFetchingSimilar(true);
-    setSimilarImagesError(null);
-    setSimilarImages(null);
-    setSimilarImagesLoaded([]);
-    
-    try {
-        const match = imageUrl.match(/^data:(image\/.+);base64,(.*)$/);
-        if (!match) {
-            throw new Error("Invalid image URL format");
-        }
-        const mimeType = match[1];
-        const base64Data = match[2];
-
-        const concepts = await fetchSimilarLandmarkInfo(result.landmarkName, mimeType, base64Data);
-
-        if (!concepts || concepts.length === 0) {
-            throw new Error("Could not generate concepts for similar images.");
-        }
-        
-        const imageGenerationPromises = concepts.map(concept => 
-            generateSimilarImage(concept.description)
-        );
-
-        const results = await Promise.allSettled(imageGenerationPromises);
-        
-        const generatedImages = results.map((res, index) => {
-            if (res.status === 'fulfilled') {
-                return {
-                    imageUrl: `data:image/png;base64,${res.value}`,
-                    description: concepts[index].description,
-                };
-            } else {
-                console.error(`Failed to generate image for prompt: "${concepts[index].description}"`, res.reason);
-                return {
-                    imageUrl: 'ERROR', // Special flag for failed images
-                    description: 'Could not generate this image.',
-                };
-            }
-        });
-
-        setSimilarImages(generatedImages);
-        setSimilarImagesLoaded(new Array(generatedImages.length).fill(false));
-
-    } catch (err: any) {
-        console.error("Failed to fetch similar images:", err);
-        setSimilarImagesError("Could not generate the visual tour. Please try again later.");
-    } finally {
-        setIsFetchingSimilar(false);
-    }
-  }, [imageUrl, result.landmarkName]);
-
   useEffect(() => {
-    handleFetchSimilarImages();
-  }, [handleFetchSimilarImages]);
+    setIsFetchingPlaces(true);
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const places = await fetchNearbyPlaces(result.landmarkName, position.coords.latitude, position.coords.longitude);
+            setNearbyPlaces(places);
+          } catch (error) {
+            console.error("Error fetching nearby places:", error);
+          } finally {
+            setIsFetchingPlaces(false);
+          }
+        },
+        (error) => {
+          console.error("Error getting geolocation:", error);
+          setIsFetchingPlaces(false); // Stop loading if user denies permission
+        }
+      );
+    } else {
+      setIsFetchingPlaces(false); // Geolocation not supported
+    }
+  }, [result.landmarkName]);
 
 
   useEffect(() => {
@@ -152,11 +118,9 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     audio.addEventListener('playing', handleCanPlay);
     audio.addEventListener('canplay', handleCanPlay);
     
-    // Initial check in case the event was missed
     if (audio.readyState < 3) {
         setIsBuffering(true);
     }
-
 
     return () => {
       audio.removeEventListener('loadeddata', setAudioData);
@@ -210,7 +174,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     if(audio) {
         const newVolume = Number(e.target.value);
         audio.volume = newVolume;
-        // If user changes volume, unmute
         if(newVolume > 0 && audio.muted) {
             audio.muted = false;
         }
@@ -236,16 +199,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     setTimeout(() => setIsRatedMessageVisible(false), 2500);
   };
   
-  const handleSimilarImageLoad = (index: number) => {
-    setSimilarImagesLoaded(prev => {
-        const newLoaded = [...prev];
-        if (index < newLoaded.length) {
-            newLoaded[index] = true;
-        }
-        return newLoaded;
-    });
-  };
-
   return (
     <>
       <div className="w-full max-w-4xl p-4 sm:p-6 bg-black/20 rounded-2xl shadow-2xl shadow-black/30 backdrop-blur-xl border border-white/10 animate-slide-up-fade-in">
@@ -375,112 +328,24 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                     </div>
                 </div>
               )}
-             
-              <div className="border-t border-white/10 pt-4">
-                <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-cyan-400">Your Rating</h3>
-                <div className="flex items-center" onMouseLeave={() => setHoverRating(0)}>
-                    <div className="flex items-center space-x-1">
-                        {[...Array(5)].map((_, index) => {
-                            const ratingValue = index + 1;
-                            return (
-                                <button
-                                    key={ratingValue}
-                                    onClick={() => handleRating(ratingValue)}
-                                    onMouseEnter={() => setHoverRating(ratingValue)}
-                                    className="p-1 transition-transform duration-150 ease-in-out hover:scale-125 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-yellow-400 rounded-full"
-                                    aria-label={`Rate ${ratingValue} out of 5 stars`}
-                                >
-                                    <StarIcon 
-                                        className={`w-7 h-7 transition-colors ${ratingValue <= (hoverRating || result.rating || 0) ? 'text-yellow-400' : 'text-gray-500'}`} 
-                                        fill="currentColor"
-                                    />
-                                </button>
-                            );
-                        })}
-                    </div>
-                    {isRatedMessageVisible && <span className="ml-4 text-sm text-green-400" style={{animation: 'fade-in 0.5s'}}>Thanks for rating!</span>}
-                </div>
-              </div>
 
-              {result.discovery && (result.discovery.funFact || result.discovery.nearbyAttractions.length > 0) && (
-                <div className="border-t border-white/10 pt-4">
-                  <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-cyan-400">Discover More</h3>
-                  
-                  {result.discovery.funFact && (
-                    <div className="mb-4 p-3 bg-black/20 rounded-lg border border-white/10">
-                      <div className="flex items-start">
-                        <div className="flex-shrink-0 pt-0.5">
-                          <LightbulbIcon className="h-5 w-5 text-yellow-300" />
-                        </div>
-                        <div className="ml-3">
-                            <h4 className="font-semibold text-yellow-300">Fun Fact</h4>
-                            <p className="text-gray-200 italic">"{result.discovery.funFact}"</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {result.discovery.nearbyAttractions.length > 0 && (
-                    <div>
-                      <div className="flex items-center mb-2">
-                        <MapPinIcon className="h-5 w-5 mr-2 text-green-400" />
-                        <h4 className="font-semibold text-gray-200">Nearby Attractions:</h4>
-                      </div>
-                      <ul className="space-y-2 pl-7 list-disc list-outside text-gray-300 marker:text-green-400">
-                        {result.discovery.nearbyAttractions.map((attraction, index) => (
-                          <li key={index} className="text-sm">
-                            <strong className="text-gray-100">{attraction.name}:</strong>
-                            <span className="text-gray-300 ml-1">{attraction.description}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-            
               <div className="border-t border-white/10 pt-4">
-                  <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-pink-400">Visual Tour</h3>
-                  {isFetchingSimilar && (
-                      <LoadingSpinner message="Generating visual tour..." />
-                  )}
-                  {similarImagesError && (
-                      <p className="text-center text-red-400">{similarImagesError}</p>
-                  )}
-                  {similarImages && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {similarImages.map((image, index) => (
-                              <div key={index} className="group relative overflow-hidden rounded-lg border border-white/10 shadow-lg">
-                                  {image.imageUrl === 'ERROR' ? (
-                                      <div className="w-full h-40 bg-red-900/20 flex flex-col items-center justify-center text-center p-2 border border-red-500/50">
-                                          <AlertIcon className="w-8 h-8 text-red-400 mb-2"/>
-                                          <p className="text-xs text-red-300">{image.description}</p>
-                                      </div>
-                                  ) : (
-                                    <>
-                                      <div className="relative w-full h-40 bg-black/20">
-                                          {!similarImagesLoaded[index] && (
-                                              <div className="absolute inset-0 flex items-center justify-center text-gray-500">
-                                                  <ImageIcon className="w-8 h-8 animate-pulse" />
-                                              </div>
-                                          )}
-                                          <img 
-                                              src={image.imageUrl} 
-                                              alt={image.description} 
-                                              className={`w-full h-40 object-cover transition-opacity duration-500 group-hover:scale-105 ${similarImagesLoaded[index] ? 'opacity-100' : 'opacity-0'}`}
-                                              loading="lazy"
-                                              onLoad={() => handleSimilarImageLoad(index)}
-                                          />
-                                      </div>
-                                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-2 flex items-end pointer-events-none">
-                                          <p className="text-xs text-white/90">{image.description}</p>
-                                      </div>
-                                    </>
-                                  )}
-                              </div>
-                          ))}
-                      </div>
-                  )}
+                  <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-pink-400">Explore Nearby</h3>
+                  {isFetchingPlaces ? <LoadingSpinner message="Finding nearby places..." /> :
+                    nearbyPlaces.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {nearbyPlaces.map((place) => (
+                                <div key={place.name} className="bg-black/20 p-3 rounded-lg border border-white/10">
+                                    <h4 className="font-bold text-sm text-gray-200">{place.name}</h4>
+                                    <p className="text-xs text-gray-400">{place.shortFormattedAddress}</p>
+                                    <p className="text-xs text-sky-400 mt-1 capitalize">{place.types.join(', ').replace(/_/g, ' ')}</p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-gray-400 text-sm text-center">Could not find nearby places.</p>
+                    )
+                  }
               </div>
 
               {result.sources && result.sources.length > 0 && (

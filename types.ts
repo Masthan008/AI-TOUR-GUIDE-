@@ -1,11 +1,11 @@
-
-
 export enum AppState {
   IDLE = 'IDLE',
   ANALYZING = 'ANALYZING',
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR',
 }
+
+export type AppView = 'tour' | 'create' | 'chat' | 'converse';
 
 export interface GroundingSource {
   uri: string;
@@ -21,6 +21,12 @@ export interface LandmarkDetails {
 export interface NearbyAttraction {
   name: string;
   description: string;
+}
+
+export interface NearbyPlace {
+    name: string;
+    types: string[];
+    shortFormattedAddress: string;
 }
 
 export interface DiscoveryDetails {
@@ -52,4 +58,9 @@ export interface HistoryItem {
 export interface SimilarImage {
   imageUrl: string;
   description: string;
+}
+
+export interface ChatMessage {
+    role: 'user' | 'model';
+    parts: { text: string }[];
 }

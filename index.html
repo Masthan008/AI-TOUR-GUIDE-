@@ -12,7 +12,7 @@
     <style>
       body {
         font-family: 'Inter', sans-serif;
-        background-color: #020617; /* Fallback for older browsers */
+        background-color: #000000;
       }
       .aurora-bg {
         position: fixed;
@@ -25,6 +25,8 @@
                     radial-gradient(circle at 80% 90%, rgba(139, 92, 246, 0.2), transparent 40%),
                     radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.1), transparent 50%);
         animation: aurora-flow 20s infinite linear;
+        filter: blur(40px);
+        opacity: 0.6;
       }
 
       @keyframes aurora-flow {
@@ -51,6 +53,15 @@
       .signature-animation {
         animation: slide-up-fade-in 1s ease-out 0.5s backwards;
       }
+      
+      .glass-pane {
+        background-color: rgba(10, 15, 30, 0.5);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      }
 
       @keyframes fade-in {
         from { opacity: 0; }
@@ -73,14 +84,14 @@
 }
 </script>
 </head>
-  <body class="bg-slate-900 text-white">
+  <body class="text-white">
     <div class="aurora-bg"></div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
+          navigator.serviceWorker.register('./sw.js')
             .then(registration => {
               console.log('ServiceWorker registration successful with scope: ', registration.scope);
             })
