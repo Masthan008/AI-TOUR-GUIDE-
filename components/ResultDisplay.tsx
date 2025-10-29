@@ -351,30 +351,24 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
               {result.details && (
                 <div className="border-t border-white/10 pt-4">
-                    <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-cyan-400">Key Details</h3>
-                    <dl className="space-y-3">
-                        <div className="flex items-start">
-                            <dt className="flex-shrink-0 flex items-center text-gray-400">
-                                <CalendarIcon className="h-5 w-5 mr-2 text-sky-400" />
-                                <span className="font-semibold">Built:</span>
-                            </dt>
-                            <dd className="ml-2 text-gray-200">{result.details.constructionDate}</dd>
+                    <h3 className="text-xl font-semibold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-sky-300 to-cyan-400">Landmark Snapshot</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-center">
+                        <div className="bg-black/20 p-4 rounded-lg border border-white/10">
+                            <CalendarIcon className="h-7 w-7 mx-auto mb-2 text-sky-400" />
+                            <h4 className="font-bold text-sm text-gray-400 uppercase tracking-wider">Built</h4>
+                            <p className="text-gray-100 font-medium mt-1">{result.details.constructionDate}</p>
                         </div>
-                        <div className="flex items-start">
-                            <dt className="flex-shrink-0 flex items-center text-gray-400">
-                                <BuildingIcon className="h-5 w-5 mr-2 text-sky-400" />
-                                <span className="font-semibold">Style:</span>
-                            </dt>
-                            <dd className="ml-2 text-gray-200">{result.details.architecturalStyle}</dd>
+                        <div className="bg-black/20 p-4 rounded-lg border border-white/10">
+                            <BuildingIcon className="h-7 w-7 mx-auto mb-2 text-sky-400" />
+                            <h4 className="font-bold text-sm text-gray-400 uppercase tracking-wider">Style</h4>
+                            <p className="text-gray-100 font-medium mt-1">{result.details.architecturalStyle}</p>
                         </div>
-                        <div className="flex items-start">
-                            <dt className="flex-shrink-0 flex items-center text-gray-400">
-                                <StarIcon className="h-5 w-5 mr-2 text-sky-400" />
-                                <span className="font-semibold">Significance:</span>
-                            </dt>
-                            <dd className="ml-2 text-gray-200">{result.details.significance}</dd>
+                        <div className="bg-black/20 p-4 rounded-lg border border-white/10">
+                            <StarIcon className="h-7 w-7 mx-auto mb-2 text-sky-400" />
+                            <h4 className="font-bold text-sm text-gray-400 uppercase tracking-wider">Significance</h4>
+                            <p className="text-gray-100 font-medium mt-1 text-sm">{result.details.significance}</p>
                         </div>
-                    </dl>
+                    </div>
                 </div>
               )}
              
