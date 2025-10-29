@@ -44,7 +44,6 @@ export interface HistoryItem {
   landmarkName: string;
   history: string;
   sources: GroundingSource[];
-  audioDataBase64: string;
   details?: LandmarkDetails;
   discovery?: DiscoveryDetails;
   rating?: number;

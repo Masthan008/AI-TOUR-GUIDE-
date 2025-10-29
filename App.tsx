@@ -71,6 +71,47 @@ function pcmToWav(pcmData: Uint8Array, sampleRate: number, numChannels: number, 
     return new Blob([view], { type: 'audio/wav' });
 }
 
+/**
+ * Creates a smaller, compressed thumbnail from a data URL to save storage space.
+ */
+async function createThumbnail(dataUrl: string, maxWidth: number = 400, maxHeight: number = 300): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = dataUrl;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                return reject(new Error('Could not get canvas context'));
+            }
+
+            let { width, height } = img;
+            if (width > height) {
+                if (width > maxWidth) {
+                    height = height * (maxWidth / width);
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width = width * (maxHeight / height);
+                    height = maxHeight;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Use JPEG for better compression for photos, with a quality setting.
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = (err) => {
+            reject(new Error(`Failed to load image for thumbnail creation: ${err}`));
+        };
+    });
+}
+
 
 function getHistory(): HistoryItem[] {
   try {
@@ -250,14 +291,15 @@ const App: React.FC = () => {
         
         setAnalysisResult(analysisData);
         setAppState(AppState.SUCCESS);
-
+        
+        const thumbnailUrl = await createThumbnail(imgUrl);
+        
         const newItem: HistoryItem = { 
             id: new Date().toISOString(),
-            imageUrl: imgUrl,
+            imageUrl: thumbnailUrl,
             landmarkName,
             history,
             sources,
-            audioDataBase64: audioBase64,
             details,
             discovery,
             rating: undefined, // Initialize rating
@@ -294,9 +336,9 @@ const App: React.FC = () => {
   }, [isOffline]);
   
   const handleSelectHistoryItem = async (item: HistoryItem) => {
-    // This function is async to allow the UI to update with a loading state
-    // before the potentially blocking audio processing work is done.
-    const pcmData = decodeBase64(item.audioDataBase64);
+    // Regenerate audio from history text to save storage space
+    const audioBase64 = await narrateText(item.history);
+    const pcmData = decodeBase64(audioBase64);
     const wavBlob = pcmToWav(pcmData, 24000, 1, 16);
     const audioUrl = URL.createObjectURL(wavBlob);
     setActiveAudioUrl(audioUrl);

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnalysisResult, SimilarImage } from '../types';
-import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon, VolumeUpIcon, VolumeOffIcon, SpinnerIcon, SparklesIcon, ImageIcon } from './Icons';
+import { LandmarkIcon, LinkIcon, ShareIcon, PlayIcon, PauseIcon, CubeIcon, CalendarIcon, BuildingIcon, StarIcon, ZoomInIcon, LightbulbIcon, MapPinIcon, VolumeUpIcon, VolumeOffIcon, SpinnerIcon, SparklesIcon, ImageIcon, AlertIcon } from './Icons';
 import { ImageZoomModal } from './ImageZoomModal';
 import { LoadingSpinner } from './LoadingSpinner';
 import { fetchSimilarLandmarkInfo, generateSimilarImage } from '../services/geminiService';
@@ -209,15 +209,27 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
             throw new Error("Could not generate concepts for similar images.");
         }
         
-        const imagePromises = concepts.map(async (concept) => {
-            const generatedImageBase64 = await generateSimilarImage(concept.description);
-            return {
-                imageUrl: `data:image/png;base64,${generatedImageBase64}`,
-                description: concept.description,
-            };
+        const imageGenerationPromises = concepts.map(concept => 
+            generateSimilarImage(concept.description)
+        );
+
+        const results = await Promise.allSettled(imageGenerationPromises);
+        
+        const generatedImages = results.map((res, index) => {
+            if (res.status === 'fulfilled') {
+                return {
+                    imageUrl: `data:image/png;base64,${res.value}`,
+                    description: concepts[index].description,
+                };
+            } else {
+                console.error(`Failed to generate image for prompt: "${concepts[index].description}"`, res.reason);
+                return {
+                    imageUrl: 'ERROR', // Special flag for failed images
+                    description: 'Could not generate this image.',
+                };
+            }
         });
 
-        const generatedImages = await Promise.all(imagePromises);
         setSimilarImages(generatedImages);
         setSimilarImagesLoaded(new Array(generatedImages.length).fill(false));
 
@@ -439,23 +451,32 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           {similarImages.map((image, index) => (
                               <div key={index} className="group relative overflow-hidden rounded-lg border border-white/10 shadow-lg">
-                                  <div className="relative w-full h-40 bg-black/20">
-                                      {(!similarImagesLoaded[index]) && (
-                                          <div className="absolute inset-0 flex items-center justify-center text-gray-500">
-                                              <ImageIcon className="w-8 h-8 animate-pulse" />
-                                          </div>
-                                      )}
-                                      <img 
-                                          src={image.imageUrl} 
-                                          alt={image.description} 
-                                          className={`w-full h-40 object-cover transition-opacity duration-500 group-hover:scale-105 ${similarImagesLoaded[index] ? 'opacity-100' : 'opacity-0'}`}
-                                          loading="lazy"
-                                          onLoad={() => handleSimilarImageLoad(index)}
-                                      />
-                                  </div>
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-2 flex items-end pointer-events-none">
-                                      <p className="text-xs text-white/90">{image.description}</p>
-                                  </div>
+                                  {image.imageUrl === 'ERROR' ? (
+                                      <div className="w-full h-40 bg-red-900/20 flex flex-col items-center justify-center text-center p-2 border border-red-500/50">
+                                          <AlertIcon className="w-8 h-8 text-red-400 mb-2"/>
+                                          <p className="text-xs text-red-300">{image.description}</p>
+                                      </div>
+                                  ) : (
+                                    <>
+                                      <div className="relative w-full h-40 bg-black/20">
+                                          {!similarImagesLoaded[index] && (
+                                              <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+                                                  <ImageIcon className="w-8 h-8 animate-pulse" />
+                                              </div>
+                                          )}
+                                          <img 
+                                              src={image.imageUrl} 
+                                              alt={image.description} 
+                                              className={`w-full h-40 object-cover transition-opacity duration-500 group-hover:scale-105 ${similarImagesLoaded[index] ? 'opacity-100' : 'opacity-0'}`}
+                                              loading="lazy"
+                                              onLoad={() => handleSimilarImageLoad(index)}
+                                          />
+                                      </div>
+                                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-2 flex items-end pointer-events-none">
+                                          <p className="text-xs text-white/90">{image.description}</p>
+                                      </div>
+                                    </>
+                                  )}
                               </div>
                           ))}
                       </div>
